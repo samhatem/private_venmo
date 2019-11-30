@@ -1,12 +1,41 @@
 pragma solidity >=0.4.24 <0.6.0;
 
-import './SafeMath.sol'
-import './Owned.sol'
+// ----------------------------------------------------------------------------
+// 'zDai' token contract
+//
+// Deployed to : 0xB26B5a7C4b35efA73E2343a086AF55b459CebAB0
+// Symbol      : ZDAI
+// Name        : zDai
+//
+// Contract initially based on:
+// https://github.com/bitfwdcommunity/Issue-your-own-ERC20-token/blob/master/contracts/erc20_tutorial.sol
+// The MIT Licence.
+// ----------------------------------------------------------------------------
 
-/**
-  Contract based on
-  https://github.com/bitfwdcommunity/Issue-your-own-ERC20-token/blob/master/contracts/erc20_tutorial.sol
-*/
+// ----------------------------------------------------------------------------
+// Math library to ensure overflow does not cause errors
+// ----------------------------------------------------------------------------
+contract SafeMath {
+  function safeAdd(uint a, uint b) public pure returns (uint c) {
+    c = a + b;
+    require (c >= a);
+  }
+
+  function safeSub(uint a, uint b) public pure returns (uint c) {
+    require(b <= a);
+    c = a - b;
+  }
+
+  function safeMul(uint a, uint b) public pure returns (uint c) {
+    c = a * b;
+    require(a == 0 || c / b == b);
+  }
+
+  function safeDiv(uint a, uint b) public pure returns (uint c) {
+    require(b > 0);
+    c = a / b;
+  }
+}
 
 // ----------------------------------------------------------------------------
 // ERC Token Standard #20 Interface
@@ -20,7 +49,7 @@ contract ERC20Interface {
   function transferFrom(address from, address to, uint tokens) public returns (bool success);
 
   event Transfer(address indexed from, address indexed to, uint tokens);
-  event Approval(address indexed tokenOwner, address indexed spender, uint tokens)
+  event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
 }
 
 // ----------------------------------------------------------------------------
@@ -33,12 +62,45 @@ contract ApproveAndCallFallBack {
 }
 
 // ----------------------------------------------------------------------------
+// Owned Contract
+// ----------------------------------------------------------------------------
+contract Owned {
+  address public owner;
+  address public newOwner;
+
+  event OwnershipTransferred(address indexed _from, address indexed _to);
+
+  constructor() public {
+    owner = msg.sender;
+  }
+
+  modifier onlyOwner {
+    require(msg.sender == owner);
+    _;
+  }
+
+  function transferOwnership(address _newOwner) public onlyOwner {
+      newOwner = _newOwner;
+  }
+  
+  function acceptOwnership() public {
+      require(msg.sender == newOwner);
+      emit OwnershipTransferred(owner, newOwner);
+      owner = newOwner;
+      newOwner = address(0);
+  }
+}
+
+// ----------------------------------------------------------------------------
 // ERC20 Token, with the addition of symbol, name and decimals and assisted
 // token transfers
 // ----------------------------------------------------------------------------
 contract Zdai is ERC20Interface, Owned, SafeMath {
   string public symbol;
   string public name;
+  uint public _totalSupply;
+  uint8 public decimals;
+
   address public owner;
 
   mapping(address => uint) balances;
@@ -51,9 +113,10 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   */
 
   constructor() public {
-    symbol = 'ZDAI'
-    name = 'zDai'
+    symbol = 'ZDAI';
+    name = 'zDai';
     owner = msg.sender;
+    decimals = 18;
   }
 
   // Function implemented to comply with erc20 interface but not necessary for a privacy coin
@@ -62,14 +125,14 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   }
 
   function balanceOf(address tokenOwner) public constant returns (uint balance) {
-    returns balances[tokenOwner)];
+    return balances[tokenOwner];
   }
 
   // ------------------------------------------------------------------------
   // Transfer the balance from token owner's account to to account
   // ------------------------------------------------------------------------
   function transfer(address to, uint tokens) public returns (bool success) {
-    balances[msg.sender] = safeSub(balances[msg.sender], tokens)
+    balances[msg.sender] = safeSub(balances[msg.sender], tokens);
     balances[to] = safeAdd(balances[to], tokens);
     emit Transfer(msg.sender, to, tokens);
     return true;
@@ -115,6 +178,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   // sends the smart contract ETH.
   // ------------------------------------------------------------------------
   function () public payable {
-
+    emit Transfer(msg.sender, owner, msg.value);
   }
 }

@@ -82,13 +82,31 @@ contract Owned {
   function transferOwnership(address _newOwner) public onlyOwner {
       newOwner = _newOwner;
   }
-  
+
   function acceptOwnership() public {
       require(msg.sender == newOwner);
       emit OwnershipTransferred(owner, newOwner);
       owner = newOwner;
       newOwner = address(0);
   }
+}
+
+// ----------------------------------------------------------------------------
+// Compound ABI
+// ----------------------------------------------------------------------------
+contract CToken {}
+
+contract CErc20 is CToken {
+
+  function mint(uint mintAmount) external returns (uint) {}
+
+  function redeem(uint redeemTokens) external returns (uint) {}
+
+  function exchangeRateCurrent() returns (uint) {}
+}
+
+contract PriceOracleProxy {
+  function getUnderlyingPrice(CToken cToken) public view returns (uint) {}
 }
 
 // ----------------------------------------------------------------------------
@@ -101,22 +119,67 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   uint public _totalSupply;
   uint8 public decimals;
 
-  address public owner;
+  CErc20 _compound;
+  PriceOracleProxy _oracle;
+  address _owner;
 
+  // tracks cdai of the address
   mapping(address => uint) balances;
+
+  // tracks amount of dai deposited
+  mapping(address => uint) daiMinted;
+
   mapping(address => mapping(address => uint)) allowed;
 
-  /*
-    Vars from previous tutorial, likely no longer necessary
-  address public owner;
-  uint public last_completed_migration;
-  */
+  event Deposit(address minter, uint mintAmount);
+  event Withdrawal(address redeemer, uint redeemAmount);
 
   constructor() public {
     symbol = 'ZDAI';
     name = 'zDai';
-    owner = msg.sender;
+    _owner = msg.sender;
     decimals = 18;
+    _compound = CErc20(0x5d3a536e4d6dbd6114cc1ead35777bab948e3643);
+    _oracle = PriceOracleProxy(0x1d8aedc9e924730dd3f9641cdb4d1b92b848b4bd);
+
+    // call compound to approve dai
+  }
+
+  // If the compound address changes, or we want to change the interest smart
+  // contract the owner of the sc can call this function. Also has the potential
+  // to be used in scams
+  function setAddress(address _t) external {
+    assert(msg.sender == _owner);
+    _compound = CErc20(_t);
+  }
+
+  function mint(uint mintAmount) external returns (bool success) {
+    uint status = _compound.mint(mintAmount);
+    require(status == 0, 'Compound mint failure');
+
+    uint rate = _compound.exchangeRateCurrent();
+    uint cdaiAmount = safeDiv(mintAmount, rate);
+    balances[msg.sender] = safeAdd(balances[msg.sender], cdaiAmount);
+    daiMinted[msg.sender] = safeAdd(balances[msg.sender], mintAmount);
+    emit Deposit(msg.sender, mintAmount);
+    _totalSupply = safeAdd(_totalSupply, mintAmount);
+    success = true;
+  }
+
+  function redeem(uint redeemTokens) external returns (bool success) {
+    require(balances[msg.sender] >= redeemTokens);
+    uint status = _compound.redeem(redeemTokens);
+    require(status == 0, 'Compound redeem failure');
+
+    // TODO: CORRECTLY CALCULATE INTEREST EARNED ON DAI
+    uint rate = _compound.exchangeRateCurrent();
+    uint daiWithdrawn = safeMul(rate, redeemTokens);
+    uint interest = safeSub(daiWithdrawn, daiMinted[msg.sender]);
+    balances[msg.sender] = safeSub(balances[msg.sender], redeemTokens);
+    emit Withdrawal(msg.sender, redeemTokens);
+    // withdraw the excess dai to the owner account
+    _totalSupply = safeSub(_totalSupply, redeemTokens);
+    success = true;
   }
 
   // Function implemented to comply with erc20 interface but not necessary for a privacy coin
@@ -178,6 +241,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   // sends the smart contract ETH.
   // ------------------------------------------------------------------------
   function () public payable {
-    emit Transfer(msg.sender, owner, msg.value);
+    _owner.transfer(msg.value);
   }
 }

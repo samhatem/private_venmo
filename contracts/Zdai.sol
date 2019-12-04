@@ -126,9 +126,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   // tracks cdai of the address
   mapping(address => uint) balances;
 
-  // tracks amount of dai deposited
-  mapping(address => uint) daiMinted;
-
   mapping(address => mapping(address => uint)) allowed;
 
   event Deposit(address minter, uint mintAmount);
@@ -140,7 +137,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
     _owner = msg.sender;
     decimals = 18;
     _compound = CErc20(0x5d3a536e4d6dbd6114cc1ead35777bab948e3643);
-    _oracle = PriceOracleProxy(0x1d8aedc9e924730dd3f9641cdb4d1b92b848b4bd);
 
     // call compound to approve dai
   }
@@ -160,7 +156,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
     uint rate = _compound.exchangeRateCurrent();
     uint cdaiAmount = safeDiv(mintAmount, rate);
     balances[msg.sender] = safeAdd(balances[msg.sender], cdaiAmount);
-    daiMinted[msg.sender] = safeAdd(balances[msg.sender], mintAmount);
     emit Deposit(msg.sender, mintAmount);
     _totalSupply = safeAdd(_totalSupply, mintAmount);
     success = true;
@@ -171,8 +166,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
     uint status = _compound.redeem(redeemTokens);
     require(status == 0, 'Compound redeem failure');
 
-    // TODO: CORRECTLY CALCULATE INTEREST EARNED ON DAI
-    uint rate = _compound.exchangeRateCurrent();
     uint daiWithdrawn = safeMul(rate, redeemTokens);
     uint interest = safeSub(daiWithdrawn, daiMinted[msg.sender]);
     balances[msg.sender] = safeSub(balances[msg.sender], redeemTokens);

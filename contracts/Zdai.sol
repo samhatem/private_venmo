@@ -42,9 +42,9 @@ contract SafeMath {
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
 // ----------------------------------------------------------------------------
 contract ERC20Interface {
-  function totalSupply() public constant returns (uint);
-  function balanceOf(address tokenOwner) public constant returns (uint balance);
-  function allowance(address tokenOwner, address spender) public constant returns (uint remaining);
+  function totalSupply() public view returns (uint);
+  function balanceOf(address tokenOwner) public view returns (uint balance);
+  function allowance(address tokenOwner, address spender) public view returns (uint remaining);
   function transfer(address to, uint tokens) public returns (bool success);
   function transferFrom(address from, address to, uint tokens) public returns (bool success);
 
@@ -58,7 +58,7 @@ contract ERC20Interface {
 // Borrowed from MiniMeToken
 // ----------------------------------------------------------------------------
 contract ApproveAndCallFallBack {
-  function receiveApproval(address from, uint256 tokens, address token, bytes data) public;
+  function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public;
 }
 
 // ----------------------------------------------------------------------------
@@ -102,7 +102,7 @@ contract CErc20 is CToken {
 
   function redeem(uint redeemTokens) external returns (uint) {}
 
-  function exchangeRateCurrent() returns (uint) {}
+  function exchangeRateCurrent() external returns (uint) {}
 }
 
 contract PriceOracleProxy {
@@ -136,7 +136,7 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
     name = 'zDai';
     _owner = msg.sender;
     decimals = 18;
-    _compound = CErc20(0x5d3a536e4d6dbd6114cc1ead35777bab948e3643);
+    _compound = CErc20(0x2B536482a01E620eE111747F8334B395a42A555E);
 
     // call compound to approve dai
   }
@@ -166,8 +166,6 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
     uint status = _compound.redeem(redeemTokens);
     require(status == 0, 'Compound redeem failure');
 
-    uint daiWithdrawn = safeMul(rate, redeemTokens);
-    uint interest = safeSub(daiWithdrawn, daiMinted[msg.sender]);
     balances[msg.sender] = safeSub(balances[msg.sender], redeemTokens);
     emit Withdrawal(msg.sender, redeemTokens);
     // withdraw the excess dai to the owner account
@@ -176,11 +174,11 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   }
 
   // Function implemented to comply with erc20 interface but not necessary for a privacy coin
-  function totalSupply() public constant returns (uint) {
+  function totalSupply() public view returns (uint) {
     return _totalSupply;
   }
 
-  function balanceOf(address tokenOwner) public constant returns (uint balance) {
+  function balanceOf(address tokenOwner) public view returns (uint balance) {
     return balances[tokenOwner];
   }
 
@@ -218,14 +216,14 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   // Returns the amount of tokens approved by the owner that can be
   // transferred to the spender's account
   // ------------------------------------------------------------------------
-  function allowance(address tokenOwner, address spender) public constant returns (uint remaining) {
+  function allowance(address tokenOwner, address spender) public view returns (uint remaining) {
     return allowed[tokenOwner][spender];
   }
 
-  function approveAndCall(address spender, uint tokens, bytes data) public returns (bool success) {
+  function approveAndCall(address spender, uint tokens, bytes memory data) public returns (bool success) {
     allowed[msg.sender][spender] = tokens;
     emit Approval(msg.sender, spender, tokens);
-    ApproveAndCallFallBack(spender).receiveApproval(msg.sender, tokens, this, data);
+    ApproveAndCallFallBack(spender).receiveApproval(msg.sender, tokens, address(this), data);
     return true;
   }
 
@@ -233,7 +231,7 @@ contract Zdai is ERC20Interface, Owned, SafeMath {
   // Accept ETH and send to me, to be used in future scams and if someone accidentally
   // sends the smart contract ETH.
   // ------------------------------------------------------------------------
-  function () public payable {
-    _owner.transfer(msg.value);
+  function () external payable {
+    revert();
   }
 }

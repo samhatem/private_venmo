@@ -25,6 +25,19 @@
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
 module.exports = {
+  // See <http://truffleframework.com/docs/advanced/configuration>
+  // to customize your Truffle configuration!
+  networks: {
+    development: {
+      network_id: 2,
+      host: 'localhost',
+      port: 5777
+    }
+  }
+}
+
+/**
+module.exports = {
   /**
    * Networks define how you connect to your ethereum client and let you set the
    * defaults web3 uses to send transactions. If you don't specify one truffle
@@ -33,7 +46,6 @@ module.exports = {
    * network from the command line, e.g
    *
    * $ truffle test --network <network-name>
-   */
 
   networks: {
     // Useful for testing. The `development` name is special - truffle uses it by default
@@ -97,3 +109,4 @@ module.exports = {
     }
   }
 }
+*/
